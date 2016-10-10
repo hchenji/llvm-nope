@@ -6964,6 +6964,77 @@ ArrayRef<const char *> MSP430TargetInfo::getGCCRegNames() const {
   return llvm::makeArrayRef(GCCRegNames);
 }
 
+class NOPETargetInfo : public TargetInfo {
+  static const char *const GCCRegNames[];
+
+public:
+  NOPETargetInfo(const llvm::Triple &Triple, const TargetOptions &)
+      : TargetInfo(Triple) {
+    BigEndian = false;
+    TLSSupported = false;
+    IntWidth = 16;
+    IntAlign = 16;
+    LongWidth = 32;
+    LongLongWidth = 64;
+    LongAlign = LongLongAlign = 16;
+    PointerWidth = 16;
+    PointerAlign = 16;
+    SuitableAlign = 16;
+    SizeType = UnsignedInt;
+    IntMaxType = SignedLongLong;
+    IntPtrType = SignedInt;
+    PtrDiffType = SignedInt;
+    SigAtomicType = SignedLong;
+    resetDataLayout("e-m:e-p:16:16-i32:16:32-a:16-n8:16");
+  }
+  void getTargetDefines(const LangOptions &Opts,
+                        MacroBuilder &Builder) const override {
+    Builder.defineMacro("NOPE");
+    Builder.defineMacro("__NOPE__");
+    // FIXME: defines for different 'flavours' of MCU
+  }
+  ArrayRef<Builtin::Info> getTargetBuiltins() const override {
+    // FIXME: Implement.
+    return None;
+  }
+  bool hasFeature(StringRef Feature) const override {
+    return Feature == "nope";
+  }
+  ArrayRef<const char *> getGCCRegNames() const override;
+  ArrayRef<TargetInfo::GCCRegAlias> getGCCRegAliases() const override {
+    // No aliases.
+    return None;
+  }
+  bool validateAsmConstraint(const char *&Name,
+                             TargetInfo::ConstraintInfo &info) const override {
+    // FIXME: implement
+    switch (*Name) {
+    case 'K': // the constant 1
+    case 'L': // constant -1^20 .. 1^19
+    case 'M': // constant 1-4:
+      return true;
+    }
+    // No target constraints for now.
+    return false;
+  }
+  const char *getClobbers() const override {
+    // FIXME: Is this really right?
+    return "";
+  }
+  BuiltinVaListKind getBuiltinVaListKind() const override {
+    // FIXME: implement
+    return TargetInfo::CharPtrBuiltinVaList;
+  }
+};
+
+const char *const NOPETargetInfo::GCCRegNames[] = {
+    "r0", "r1", "r2",  "r3",  "r4",  "r5",  "r6",  "r7",
+    "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"};
+
+ArrayRef<const char *> NOPETargetInfo::getGCCRegNames() const {
+  return llvm::makeArrayRef(GCCRegNames);
+}
+
 // LLVM and Clang cannot be used directly to output native binaries for
 // target, but is used to compile C code to llvm bitcode with correct
 // type and alignment information.
@@ -8230,6 +8301,9 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple,
 
   case llvm::Triple::msp430:
     return new MSP430TargetInfo(Triple, Opts);
+
+  case llvm::Triple::nope:
+    return new NOPETargetInfo(Triple, Opts);
 
   case llvm::Triple::mips:
     switch (os) {
